@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Neutrals */
+  --color-ink: #101828;
+  --color-ink-2: #344054;
+  --color-ink-3: #5b6577;
+  --color-canvas: #f6f8fc;
+  --color-line: #e3e8f0;
+  --color-line-strong: #cdd5e1;
+
+  /* Action blue */
+  --color-brand: #1769f5;
+  --color-brand-hover: #1559d6;
+  --color-brand-ink: #0b4bc0;
+  --color-brand-tint: #eaf1fe;
+
+  /* Status: green = healthy, amber = renewals and warnings, red = needs attention */
+  --color-ok: #137333;
+  --color-ok-dot: #22a35a;
+  --color-ok-tint: #e8f6ee;
+  --color-warn: #a34a07;
+  --color-warn-dot: #f0a020;
+  --color-warn-tint: #fef3e2;
+  --color-alert: #b42318;
+  --color-alert-dot: #e5484d;
+  --color-alert-tint: #fdecea;
+
+  --shadow-panel: 0 1px 2px rgb(16 24 40 / 0.04), 0 12px 32px -12px rgb(16 24 40 / 0.14);
+}
+
+@layer base {
+  html {
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: var(--color-brand-tint);
+    color: var(--color-ink);
+  }
+}
+
+@utility page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 76rem;
+  padding-inline: 1rem;
+
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+/* Section headings share one scale so no section shouts louder than another. */
+@utility heading-section {
+  font-size: clamp(1.75rem, 1.35rem + 1.6vw, 2.375rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+
+@utility lede {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--color-ink-2);
+}
+
+/* Consistent vertical rhythm between sections */
+@utility section-y {
+  padding-block: 4rem;
+
+  @media (width >= 40rem) {
+    padding-block: 5.5rem;
+  }
+}
+
+/* ---------- Motion ----------
+   Elements start visible ('idle'). Reveal.tsx only switches them to 'hidden' when the
+   browser supports IntersectionObserver and the visitor has not asked for reduced motion. */
+
+@layer components {
+  [data-reveal] {
+    --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition:
+      opacity 520ms var(--ease-out-soft),
+      transform 520ms var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  [data-reveal='hidden'] {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  /* Hero overview: illustrative bars settle in once, after the panel appears */
+  [data-reveal='shown'] .tick {
+    animation: tick-in 420ms var(--ease-out-soft) both;
+    animation-delay: calc(360ms + var(--i) * 22ms);
+  }
+
+  [data-reveal='shown'] .track-fill {
+    animation: track-in 900ms var(--ease-out-soft) both 420ms;
+  }
+
+  [data-reveal='shown'] .track-marker {
+    animation: fade-in 300ms ease-out both 1200ms;
+  }
+}
+
+@keyframes tick-in {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0.3;
+  }
+}
+
+@keyframes track-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    transition: none;
+  }
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
