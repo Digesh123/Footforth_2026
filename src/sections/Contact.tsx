@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
-import { CircleAlert, CircleCheck, LoaderCircle, Mail, MapPin, MailOpen, Phone } from 'lucide-react'
+import { Check, CircleAlert, CircleCheck, Copy, ExternalLink, LoaderCircle, Mail, MapPin, MailOpen, Phone } from 'lucide-react'
 import { site } from '../config/site'
 import { buttonClass } from '../components/button'
 import { Reveal } from '../components/Reveal'
@@ -36,7 +36,9 @@ function subjectFor(type: EnquiryType, v: Values) {
   return `${enquiryTypes[type].subject}: ${v.business.trim() || v.name.trim()}`
 }
 
-function buildMailto(type: EnquiryType, v: Values) {
+type Email = { subject: string; body: string }
+
+function composeEmail(type: EnquiryType, v: Values): Email {
   const body = [
     `Enquiry: ${enquiryTypes[type].label}`,
     `Name: ${v.name.trim()}`,
@@ -47,8 +49,18 @@ function buildMailto(type: EnquiryType, v: Values) {
     'What we need help with:',
     v.message.trim(),
   ].join('\n')
-  return `mailto:${site.email}?subject=${encodeURIComponent(subjectFor(type, v))}&body=${encodeURIComponent(body)}`
+  return { subject: subjectFor(type, v), body }
 }
+
+const enc = encodeURIComponent
+
+// mailto: does nothing when no default mail app is set (common with webmail users),
+// so the fallback also offers webmail compose links and a copy option.
+const mailtoUrl = (m: Email) => `mailto:${site.email}?subject=${enc(m.subject)}&body=${enc(m.body)}`
+const gmailUrl = (m: Email) =>
+  `https://mail.google.com/mail/?view=cm&fs=1&to=${enc(site.email)}&su=${enc(m.subject)}&body=${enc(m.body)}`
+const outlookUrl = (m: Email) =>
+  `https://outlook.live.com/mail/0/deeplink/compose?to=${enc(site.email)}&subject=${enc(m.subject)}&body=${enc(m.body)}`
 
 export function Contact() {
   const [status, setStatus] = useState<Status>('idle')
@@ -86,7 +98,7 @@ export function Contact() {
     }
 
     if (!usesEndpoint) {
-      window.location.assign(buildMailto(type, values))
+      window.location.assign(mailtoUrl(composeEmail(type, values)))
       setStatus('mail-opened')
       return
     }
@@ -246,22 +258,16 @@ export function Contact() {
                 )}
                 {status === 'mail-opened' && (
                   <Notice tone="info" icon={<MailOpen className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}>
-                    <strong className="font-semibold">Not sent yet.</strong> Your email app should be open with the
-                    enquiry filled in. Press Send there to reach us. Nothing opened? Email{' '}
-                    <a href={`mailto:${site.email}`} className="font-semibold underline">
-                      {site.email}
-                    </a>
-                    .
+                    <strong className="font-semibold">Not sent yet.</strong> If your email app opened, press Send there.
+                    If nothing happened, send it another way:
+                    <SendOptions email={composeEmail(type, values)} />
                   </Notice>
                 )}
                 {status === 'error' && (
                   <Notice tone="error" icon={<CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}>
-                    <strong className="font-semibold">Not sent.</strong> Check your connection and try again, or
-                    email{' '}
-                    <a href={`mailto:${site.email}`} className="font-semibold underline">
-                      {site.email}
-                    </a>
-                    .
+                    <strong className="font-semibold">Not sent.</strong> Check your connection and try again, or send it
+                    another way:
+                    <SendOptions email={composeEmail(type, values)} />
                   </Notice>
                 )}
               </div>
@@ -269,7 +275,7 @@ export function Contact() {
               <p id="form-note" className="mt-4 text-xs leading-relaxed text-ink-3">
                 {usesEndpoint
                   ? 'We use these details only to respond to your enquiry.'
-                  : `This opens your email app with a message to ${site.email}. We use these details only to respond.`}
+                  : `This prepares an email to ${site.email} in your email app, Gmail or Outlook. We use these details only to respond.`}
               </p>
             </form>
           )}
@@ -281,7 +287,60 @@ export function Contact() {
 
 function Notice({ tone, icon, children }: { tone: 'info' | 'error'; icon: ReactNode; children: ReactNode }) {
   const styles = tone === 'info' ? 'border-brand/20 bg-brand-tint text-brand-ink' : 'border-alert/20 bg-alert-tint text-alert'
-  return <p className={`mt-4 flex gap-2 rounded-lg border p-3 text-sm leading-relaxed ${styles}`}>{icon}<span>{children}</span></p>
+  return (
+    <div className={`mt-4 flex gap-2 rounded-lg border p-3 text-sm leading-relaxed ${styles}`}>
+      {icon}
+      <div className="min-w-0">{children}</div>
+    </div>
+  )
+}
+
+const optionClass =
+  'inline-flex min-h-9 items-center gap-1.5 rounded-md border border-line-strong bg-white px-3 text-[0.8125rem] font-semibold text-ink transition-colors hover:bg-canvas active:bg-line/60'
+
+function SendOptions({ email }: { email: Email }) {
+  const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(`To: ${site.email}\nSubject: ${email.subject}\n\n${email.body}`)
+      setCopy('copied')
+    } catch {
+      setCopy('failed')
+    }
+  }
+
+  return (
+    <>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        <a href={gmailUrl(email)} target="_blank" rel="noopener noreferrer" className={optionClass}>
+          Open in Gmail
+          <ExternalLink className="size-3.5 text-ink-3" aria-hidden="true" />
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+        <a href={outlookUrl(email)} target="_blank" rel="noopener noreferrer" className={optionClass}>
+          Open in Outlook
+          <ExternalLink className="size-3.5 text-ink-3" aria-hidden="true" />
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+        <button type="button" onClick={onCopy} className={optionClass}>
+          {copy === 'copied' ? (
+            <Check className="size-3.5 text-ok" aria-hidden="true" />
+          ) : (
+            <Copy className="size-3.5 text-ink-3" aria-hidden="true" />
+          )}
+          {copy === 'copied' ? 'Copied' : 'Copy message'}
+        </button>
+      </div>
+      <p className="mt-2 text-xs" aria-live="polite">
+        {copy === 'copied'
+          ? `Paste it into a new email to ${site.email}.`
+          : copy === 'failed'
+            ? `Couldn’t copy automatically. Email ${site.email} directly.`
+            : `Or email ${site.email} directly.`}
+      </p>
+    </>
+  )
 }
 
 function ContactLine({ icon, children }: { icon: ReactNode; children: ReactNode }) {
